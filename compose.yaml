@@ -1,0 +1,29 @@
+services:
+  backend:
+    build: .
+    container_name: agentic-backend
+    env_file:
+      - .env
+    environment:
+      BACKEND_HOST: 0.0.0.0
+      BACKEND_PORT: 8000
+    ports:
+      - '8000:8000'
+
+  ui:
+    build: .
+    container_name: agentic-ui
+    env_file:
+      - .env
+    environment:
+      BACKEND_URL: http://backend:8000
+    depends_on:
+      - backend
+    ports:
+      - '8501:8501'
+    command:
+      - streamlit
+      - run
+      - ui/streamlit_app.py
+      - --server.address=0.0.0.0
+      - --server.port=8501
