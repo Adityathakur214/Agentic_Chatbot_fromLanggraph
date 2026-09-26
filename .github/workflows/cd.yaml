@@ -1,9 +1,10 @@
-name: CD
+# modified
+name: CD  
 
 on:
   workflow_run:
     workflows: ["CI"]
-    types:
+    types: 
       - completed
 
 jobs:
