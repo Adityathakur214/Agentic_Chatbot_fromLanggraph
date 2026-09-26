@@ -1,58 +1,101 @@
 from fastapi import FastAPI, HTTPException
+import traceback
 
 from langchain.messages import AIMessage, HumanMessage
 
 from app.agent.graph import run_agent
 from app.schemas import ChatRequest, ChatResponse
 
+
 app = FastAPI(
-    title='Agentic Chatbot API',
-    description='FastAPI backend for a LangGraph tool-using agent.',
-    version='1.0.0',
+    title="Agentic Chatbot API",
+    description="FastAPI backend for a LangGraph tool-using agent.",
+    version="1.0.0",
 )
 
 
-@app.get('/')
+@app.get("/")
 def root():
     return {
-        'message': 'Agentic Chatbot API is running.',
-        'docs': '/docs',
-        'health': '/health',
+        "message": "Agentic Chatbot API is running.",
+        "docs": "/docs",
+        "health": "/health",
     }
 
 
-@app.get('/health')
+@app.get("/health")
 def health():
-    return {'status': 'ok'}
+    return {"status": "ok"}
 
 
 def _to_langchain_messages(history):
     messages = []
+
     for item in history:
-        if item.role == 'user':
-            messages.append(HumanMessage(content=item.content))
+        if item.role == "user":
+            messages.append(
+                HumanMessage(content=item.content)
+            )
         else:
-            messages.append(AIMessage(content=item.content))
+            messages.append(
+                AIMessage(content=item.content)
+            )
+
     return messages
 
 
-@app.post('/chat', response_model=ChatResponse)
+@app.post("/chat", response_model=ChatResponse)
 def chat(request: ChatRequest):
     try:
+        # Convert chat history into LangChain messages
         messages = _to_langchain_messages(request.history)
-        messages.append(HumanMessage(content=request.message))
 
+        # Add current user message
+        messages.append(
+            HumanMessage(content=request.message)
+        )
+
+        # Run LangGraph agent
         result = run_agent(messages)
-        final_message = result['messages'][-1]
-        answer = str(getattr(final_message, 'content', ''))
 
+        # Get final response
+        final_message = result["messages"][-1]
+
+        answer = str(
+            getattr(final_message, "content", "")
+        )
+
+        # Collect tool calls
         tool_calls = []
-        for message in result['messages']:
-            for tool_call in (getattr(message, 'tool_calls', None) or []):
-                name = tool_call.get('name')
+
+        for message in result["messages"]:
+            for tool_call in (
+                getattr(message, "tool_calls", None) or []
+            ):
+                name = tool_call.get("name")
+
                 if name:
                     tool_calls.append(name)
 
-        return ChatResponse(answer=answer, tool_calls=tool_calls)
+        return ChatResponse(
+            answer=answer,
+            tool_calls=tool_calls
+        )
+
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+        # Print complete error in Uvicorn terminal
+        print("\n" + "=" * 70)
+        print("❌ ERROR IN /chat ENDPOINT")
+        print("=" * 70)
+
+        traceback.print_exc()
+
+        print("=" * 70)
+        print(f"ERROR MESSAGE: {exc}")
+        print("=" * 70 + "\n")
+
+        raise HTTPException(
+            status_code=500,
+            detail=str(exc)
+        ) from exc
